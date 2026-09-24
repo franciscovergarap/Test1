@@ -1,0 +1,31 @@
+# Terminal dialéctica — configuración del Worker de Cloudflare.
+# Secretos (no se escriben aquí):
+#   npx wrangler secret put GITHUB_TOKEN    # token fine-grained con permiso Contents (y Pull requests en modo revision)
+#   npx wrangler secret put FIRMA_SECRETA   # cadena aleatoria larga, p. ej. `openssl rand -hex 32`
+
+name = "terminal-dialectica"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[ai]
+binding = "AI"
+
+[vars]
+REPO_DUENO = "franciscovergarap"
+REPO_NOMBRE = "Test1"
+RAMA = "main"
+ARCHIVO = "index.html"
+# "directo": cada intervención se publica como commit en RAMA.
+# "revision": cada intervención abre un pull request que alguien del CPE acepta o rechaza.
+MODO = "directo"
+MODELO = "@cf/qwen/qwen2.5-coder-32b-instruct"
+# "1" filtra las instrucciones con Llama Guard 3 antes de pasarlas al editor; "0" lo desactiva.
+MODERACION = "1"
+# Orígenes (sin barra final) desde los que se aceptan intervenciones, separados por comas.
+ORIGENES_PERMITIDOS = "https://franciscovergarap.github.io,http://localhost:8000"
+
+# Máximo de 6 peticiones de escritura por minuto y por IP.
+[[ratelimits]]
+name = "LIMITADOR"
+namespace_id = "1001"
+simple = { limit = 6, period = 60 }

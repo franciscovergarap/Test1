@@ -2,6 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://*.workers.dev; object-src 'none'; base-uri 'none'; form-action 'none'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Producción del Espacio — Teoría urbana, geografía crítica y pensamiento espacial</title>
     <meta name="description" content="Revista digital sobre la producción social del espacio. Henri Lefebvre, geografía crítica, urbanismo, derecho a la ciudad y pensamiento espacial contemporáneo.">
@@ -626,6 +627,7 @@
             background: #333;
         }
     </style>
+    <link rel="stylesheet" href="terminal/terminal.css">
 </head>
 <body>
 
@@ -651,6 +653,9 @@
 
     <!-- ═══════════════ CONTENIDO PRINCIPAL ═══════════════ -->
     <main class="main-content" id="inicio">
+
+        <!-- Todo lo que está entre estos marcadores puede ser transformado desde la terminal dialéctica. -->
+        <!-- ZONA-DIALECTICA:INICIO -->
 
         <!-- Hero -->
         <section class="hero animate-in">
@@ -771,12 +776,14 @@
             <h3>📬 Boletín quincenal</h3>
             <p>Recibí los nuevos artículos, traducciones y convocatorias directamente en tu correo. Sin spam, solo
                 pensamiento espacial.</p>
-            <form class="newsletter-form" onsubmit="handleNewsletter(event)">
+            <form class="newsletter-form">
                 <input type="email" placeholder="tu@correo.com" required aria-label="Correo electrónico">
                 <button type="submit">Suscribirme</button>
             </form>
             <small id="newsletterMsg" style="display:block;margin-top:1rem;min-height:1.2em;"></small>
         </div>
+
+        <!-- ZONA-DIALECTICA:FIN -->
 
     </main>
 
@@ -797,89 +804,7 @@
     <button class="scroll-top-btn" id="scrollTopBtn" aria-label="Volver arriba" title="Volver arriba">↑</button>
 
     <!-- ═══════════════ SCRIPTS ═══════════════ -->
-    <script>
-        (function() {
-            // ── Menú móvil ──────────────────────────
-            const menuToggle = document.getElementById('menuToggle');
-            const navLinks = document.getElementById('navLinks');
-            const allNavLinks = navLinks.querySelectorAll('a');
-
-            menuToggle.addEventListener('click', () => {
-                const isOpen = navLinks.classList.toggle('open');
-                menuToggle.setAttribute('aria-expanded', isOpen);
-                menuToggle.textContent = isOpen ? '✕' : '☰';
-            });
-
-            allNavLinks.forEach(link => {
-                link.addEventListener('click', () => {
-                    navLinks.classList.remove('open');
-                    menuToggle.setAttribute('aria-expanded', 'false');
-                    menuToggle.textContent = '☰';
-                    // Actualizar active
-                    allNavLinks.forEach(l => l.classList.remove('active'));
-                    link.classList.add('active');
-                });
-            });
-
-            // ── Scroll to top button ────────────────
-            const scrollTopBtn = document.getElementById('scrollTopBtn');
-            window.addEventListener('scroll', () => {
-                if (window.scrollY > 500) {
-                    scrollTopBtn.classList.add('visible');
-                } else {
-                    scrollTopBtn.classList.remove('visible');
-                }
-            });
-            scrollTopBtn.addEventListener('click', () => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            });
-
-            // ── Animaciones al hacer scroll ─────────
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '1';
-                        entry.target.style.transform = 'translateY(0)';
-                    }
-                });
-            }, { threshold: 0.15, rootMargin: '0px 0px -40px 0px' });
-
-            document.querySelectorAll('.animate-in').forEach(el => {
-                observer.observe(el);
-            });
-
-            // ── Newsletter ──────────────────────────
-            window.handleNewsletter = function(e) {
-                e.preventDefault();
-                const msg = document.getElementById('newsletterMsg');
-                msg.textContent = '✅ ¡Gracias por suscribirte! Te llegará un correo de confirmación.';
-                msg.style.color = '#3a7d44';
-                e.target.reset();
-                setTimeout(() => { msg.textContent = ''; }, 4000);
-            };
-
-            // ── Navegación suave para enlaces internos ──
-            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-                anchor.addEventListener('click', function(e) {
-                    const targetId = this.getAttribute('href');
-                    if (targetId === '#') return;
-                    const target = document.querySelector(targetId);
-                    if (target) {
-                        e.preventDefault();
-                        const headerOffset = 80;
-                        const elementPosition = target.getBoundingClientRect().top;
-                        const offsetPosition = elementPosition + window.pageYOffset -
-                            headerOffset;
-                        window.scrollTo({
-                            top: offsetPosition,
-                            behavior: 'smooth'
-                        });
-                    }
-                });
-            });
-
-            console.log('🏙️  Producción del Espacio — Revista lista. ¡Bienvenidx!');
-        })();
-    </script>
+    <script src="assets/sitio.js"></script>
+    <script src="terminal/terminal.js" data-servidor="" defer></script>
 </body>
 </html>

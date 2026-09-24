@@ -1,0 +1,14 @@
+{
+  "name": "terminal-dialectica",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "miniflare": "^4.20250214.0",
+    "wrangler": "^4.0.0"
+  }
+}
