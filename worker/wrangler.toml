@@ -14,17 +14,29 @@ binding = "AI"
 REPO_DUENO = "franciscovergarap"
 REPO_NOMBRE = "Test1"
 RAMA = "main"
-ARCHIVO = "index.html"
+# Carpeta del repositorio donde vive el sitio ("" en Test1; "docs" en cpe-udla/cpe-repositorio).
+RAIZ_SITIO = ""
+# Páginas abiertas a intervención, separadas por comas. En todas las demás la terminal solo responde preguntas.
+EDITABLES = "index.html"
+# Hoja de estilos común que el modelo editor recibe como referencia (no la modifica).
+HOJA_COMUN = "assets/style.css"
 # "directo": cada intervención se publica como commit en RAMA.
 # "revision": cada intervención abre un pull request que alguien del CPE acepta o rechaza.
 MODO = "directo"
+# Modelo que reescribe páginas (especializado en código).
 MODELO = "@cf/qwen/qwen2.5-coder-32b-instruct"
+# Modelo que responde preguntas (131 000 tokens de contexto: admite un paper completo).
+MODELO_LECTOR = "@cf/meta/llama-4-scout-17b-16e-instruct"
+# Textos completos de las publicaciones (papers/markdown del repositorio del CPE), indexados en terminal/biblioteca.json.
+FUENTE_TEXTOS = "https://raw.githubusercontent.com/cpe-udla/cpe-repositorio/main/papers/markdown/"
+# Proporción mínima del vocabulario de la página que debe sobrevivir a una intervención.
+UMBRAL_TEXTO = "0.95"
 # "1" filtra las instrucciones con Llama Guard 3 antes de pasarlas al editor; "0" lo desactiva.
 MODERACION = "1"
 # Orígenes (sin barra final) desde los que se aceptan intervenciones, separados por comas.
 ORIGENES_PERMITIDOS = "https://franciscovergarap.github.io,http://localhost:8000"
 
-# Máximo de 6 peticiones de escritura por minuto y por IP.
+# Máximo de 6 peticiones (propuestas, publicaciones o preguntas) por minuto y por IP.
 [[ratelimits]]
 name = "LIMITADOR"
 namespace_id = "1001"

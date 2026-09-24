@@ -7,20 +7,20 @@
 
 // Etiquetas que se eliminan junto con todo su contenido.
 const ETIQUETAS_PROHIBIDAS = new Set([
-  'script', 'style', 'iframe', 'frame', 'frameset', 'object', 'embed', 'applet',
+  'script', 'style', 'frame', 'frameset', 'object', 'embed', 'applet',
   'noscript', 'template', 'svg', 'math', 'link', 'meta', 'base', 'title',
   'head', 'html', 'body', 'portal', 'canvas', 'video', 'audio', 'source', 'track',
 ]);
 
 // Etiquetas permitidas. Cualquier otra se reemplaza por su contenido.
 const ETIQUETAS_PERMITIDAS = new Set([
-  'section', 'article', 'aside', 'header', 'footer', 'nav', 'div', 'span', 'p',
+  'main', 'section', 'article', 'aside', 'header', 'footer', 'nav', 'div', 'span', 'p',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'a', 'em', 'strong', 'b', 'i', 'u', 's',
   'small', 'mark', 'blockquote', 'q', 'cite', 'abbr', 'time', 'br', 'hr',
   'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'figure', 'figcaption', 'img',
   'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption',
   'code', 'pre', 'sub', 'sup', 'details', 'summary',
-  'form', 'input', 'button', 'label', 'textarea', 'select', 'option',
+  'form', 'input', 'button', 'label', 'textarea', 'select', 'option', 'iframe',
 ]);
 
 const ATRIBUTOS_GLOBALES = new Set(['class', 'id', 'title', 'lang', 'dir', 'role', 'hidden', 'style']);
@@ -42,7 +42,11 @@ const ATRIBUTOS_POR_ETIQUETA = {
   textarea: new Set(['name', 'placeholder', 'rows', 'cols', 'required']),
   select: new Set(['name', 'required']),
   option: new Set(['value', 'selected']),
+  // Solo se admiten iframes de vídeos incrustados de YouTube (ver IFRAME_PERMITIDO).
+  iframe: new Set(['src', 'title', 'loading', 'allow', 'allowfullscreen']),
 };
+
+const IFRAME_PERMITIDO = /^https:\/\/www\.youtube(-nocookie)?\.com\/embed\/[A-Za-z0-9_-]+(\?[A-Za-z0-9_=&-]*)?$/;
 
 const ATRIBUTOS_URL = new Set(['href', 'src', 'cite']);
 
@@ -50,7 +54,19 @@ const TIPOS_INPUT = new Set(['text', 'email', 'search', 'checkbox', 'radio', 'su
 
 // CSS en línea: se descarta el atributo entero si contiene algo de esto.
 // position:fixed/sticky permitiría superponer contenido falso sobre toda la página.
-const CSS_PELIGROSO = /url\s*\(|expression\s*\(|javascript:|@import|behaviou?r\s*:|-moz-binding|\\|position\s*:\s*(fixed|sticky)/i;
+const CSS_PELIGROSO = /url\s*\(|expression\s*\(|javascript:|@import|behaviou?r\s*:|-moz-binding|\\|position\s*:\s*fixed/i;
+
+// Hoja de estilo propia de la página (<style id="estilo-dialectico">). Además de lo
+// anterior se rechaza cualquier "<" (impide cerrar la etiqueta <style>) y toda regla
+// que apunte a la terminal (.td-*, #td-*): nadie puede ocultarla a los demás.
+const CSS_BLOQUE_PELIGROSO = /<|@charset|@namespace|[.#]td-/i;
+
+export function sanearCss(css) {
+  const texto = String(css || '').trim();
+  if (!texto) return { css: '', rechazado: false };
+  if (CSS_PELIGROSO.test(texto) || CSS_BLOQUE_PELIGROSO.test(texto)) return { css: '', rechazado: true };
+  return { css: texto, rechazado: false };
+}
 
 export function urlSegura(valor) {
   const v = String(valor).replace(/[\u0000- \u007f-\u009f]/g, '').toLowerCase();
@@ -99,6 +115,11 @@ export async function sanear(fragmento) {
             informe.atributos.add(nombre);
             el.removeAttribute(nombreOriginal);
           }
+        }
+        if (etiqueta === 'iframe' && !IFRAME_PERMITIDO.test(el.getAttribute('src') || '')) {
+          informe.eliminadas.add('iframe');
+          el.remove();
+          return;
         }
         if (etiqueta === 'a' && el.getAttribute('target')) {
           el.setAttribute('target', '_blank');

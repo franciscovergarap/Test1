@@ -2,6 +2,7 @@
 <html lang="es" dir="ltr">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; frame-src https://www.youtube-nocookie.com https://www.youtube.com; connect-src 'self' https://*.workers.dev; object-src 'none'; base-uri 'none'; form-action 'none'">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inicio — Centro Producción del Espacio</title>
 <meta name="description" content="Centro Producción del Espacio (CPE), núcleo de investigación de la Facultad de Arquitectura, Animación, Diseño y Construcción, Universidad de Las Américas, Chile.">
@@ -10,6 +11,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jost:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="terminal/terminal.css">
+<!-- Estética propia de esta página: la terminal dialéctica puede reescribirla. -->
+<style id="estilo-dialectico"></style>
 <link rel="alternate" hreflang="es" href="https://cpe-udla.github.io/cpe-repositorio/index.html">
 <link rel="alternate" hreflang="en" href="https://cpe-udla.github.io/cpe-repositorio/en/index.html">
 <link rel="alternate" hreflang="fr" href="https://cpe-udla.github.io/cpe-repositorio/fr/index.html">
@@ -20,6 +24,8 @@
 <link rel="alternate" hreflang="x-default" href="https://cpe-udla.github.io/cpe-repositorio/index.html">
 </head>
 <body data-menu-open="Menú" data-menu-close="Cerrar">
+<!-- Todo lo que está entre estos marcadores puede ser transformado desde la terminal dialéctica, sin borrar información. -->
+<!-- ZONA-DIALECTICA:INICIO -->
   <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú" aria-expanded="false">Menú</button>
   <aside class="sidebar" id="sidebar">
     <a class="brand" href="index.html">
@@ -173,6 +179,8 @@
       <p><a href="mailto:jvergara@udla.cl">jvergara@udla.cl</a> · <a href="https://www.instagram.com/cpe.udla" target="_blank" rel="noopener">@cpe.udla</a></p>
     </footer>
   </main>
+<!-- ZONA-DIALECTICA:FIN -->
 <script src="assets/site.js"></script>
+<script src="terminal/terminal.js" data-servidor="" data-reiniciar="assets/site.js" defer></script>
 </body>
 </html>

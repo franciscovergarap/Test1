@@ -1,12 +1,15 @@
 // Punto de entrada solo para pruebas: expone el saneador y sustituye el
 // binding de Workers AI por un servicio simulado controlado desde Node.
 import principal from '../src/index.js';
-import { sanear } from '../src/sanear.js';
+import { sanear, sanearCss } from '../src/sanear.js';
 
 export default {
   async fetch(request, env, ctx) {
     if (new URL(request.url).pathname === '/__sanear') {
       return Response.json(await sanear(await request.text()));
+    }
+    if (new URL(request.url).pathname === '/__css') {
+      return Response.json(sanearCss(await request.text()));
     }
     const AI = {
       async run(modelo, entrada) {
