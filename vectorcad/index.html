@@ -1,0 +1,1670 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>VectorCAD Web — Centro Producción del Espacio</title>
+<style>
+  :root {
+    --bg:#141417; --panel:#161619; --panel-alt:#1e1e23; --line:#2a2a31;
+    --text:#e6e6e6; --muted:#9a9aa2; --accent:#ffd54f; --ghost:#4fc3f7;
+    --snap:#ff7043; --grid-min:#202024; --grid-maj:#2b2b31;
+    --axis-x:#6a3030; --axis-y:#306a30; --sel:#ffd54f;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--bg);
+    color:var(--text);font-family:-apple-system,"Segoe UI",Roboto,sans-serif;font-size:13px;}
+  #app{display:flex;flex-direction:column;height:100%;}
+  #toolbar{display:flex;gap:3px;padding:4px 6px;background:var(--panel);
+    border-bottom:1px solid var(--line);flex-wrap:wrap;align-items:center;}
+  #toolbar button{background:var(--panel-alt);color:var(--text);
+    border:1px solid var(--line);padding:4px 9px;border-radius:3px;cursor:pointer;
+    font-size:12px;font-family:inherit;}
+  #toolbar button:hover{background:#26262d;border-color:#3a3a45;}
+  #toolbar .sep{width:1px;height:20px;background:var(--line);margin:0 4px;}
+  #main{display:flex;flex:1;min-height:0;}
+  #canvas-wrap{flex:1;position:relative;min-width:0;}
+  #canvas{display:block;width:100%;height:100%;cursor:crosshair;}
+  #right-dock{width:280px;background:var(--panel);border-left:1px solid var(--line);
+    display:flex;flex-direction:column;}
+  .dock-section{border-bottom:1px solid var(--line);display:flex;flex-direction:column;}
+  .dock-title{padding:6px 10px;font-weight:600;font-size:11px;
+    text-transform:uppercase;letter-spacing:0.5px;color:var(--muted);
+    background:var(--panel-alt);display:flex;justify-content:space-between;
+    align-items:center;}
+  .dock-title button{background:transparent;border:1px solid var(--line);color:var(--text);
+    padding:1px 6px;border-radius:3px;cursor:pointer;font-size:11px;}
+  .dock-title button:hover{background:#26262d;}
+  #layers-list{padding:4px;overflow-y:auto;max-height:220px;}
+  .layer-row{display:flex;align-items:center;gap:6px;padding:3px 6px;
+    border-radius:3px;cursor:pointer;font-size:12px;}
+  .layer-row:hover{background:var(--panel-alt);}
+  .layer-row.current{background:#2a2a3d;}
+  .layer-eye,.layer-lock{width:16px;text-align:center;cursor:pointer;
+    opacity:0.35;user-select:none;font-size:13px;}
+  .layer-eye.on,.layer-lock.on{opacity:1;}
+  .layer-swatch{width:14px;height:14px;border-radius:2px;
+    border:1px solid var(--line);flex-shrink:0;cursor:pointer;}
+  .layer-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .layer-name.bold{font-weight:700;}
+  #props-list{padding:6px 10px;font-size:12px;overflow-y:auto;flex:1;}
+  #props-list .empty{color:var(--muted);font-style:italic;}
+  .prop-row{display:flex;justify-content:space-between;padding:3px 0;gap:8px;
+    border-bottom:1px solid var(--line);}
+  .prop-row:last-child{border-bottom:none;}
+  .prop-key{color:var(--muted);}
+  .prop-val{text-align:right;font-family:ui-monospace,monospace;}
+  #bottom{background:var(--panel);border-top:1px solid var(--line);display:flex;
+    flex-direction:column;}
+  #history{height:120px;overflow-y:auto;padding:6px 10px;
+    font-family:ui-monospace,monospace;font-size:12px;background:#0b0b0d;
+    color:#9fe;line-height:1.45;}
+  #history .cmd{color:var(--accent);font-weight:600;}
+  #history .warn{color:#ffb74d;}
+  #history .error{color:#ff5252;}
+  #input-row{display:flex;align-items:center;padding:5px 6px;gap:6px;}
+  #prompt-label{color:var(--accent);font-family:ui-monospace,monospace;
+    font-size:12px;white-space:nowrap;}
+  #cmd-input{flex:1;background:var(--panel-alt);color:var(--text);
+    border:1px solid var(--line);padding:6px 9px;border-radius:3px;
+    font-family:ui-monospace,monospace;font-size:13px;outline:none;}
+  #cmd-input:focus{border-color:#3d5afe;}
+  #statusbar{background:var(--panel-alt);border-top:1px solid var(--line);
+    padding:3px 10px;font-size:11px;display:flex;gap:10px;align-items:center;
+    font-family:ui-monospace,monospace;color:var(--muted);}
+  #statusbar .tog{cursor:pointer;padding:2px 7px;border-radius:3px;
+    background:transparent;border:1px solid transparent;color:var(--muted);
+    user-select:none;}
+  #statusbar .tog.on{color:var(--accent);border-color:var(--accent);}
+  #statusbar .tog:hover{background:rgba(255,255,255,0.05);}
+  #statusbar .spacer{flex:1;}
+  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:none;
+    align-items:center;justify-content:center;z-index:100;}
+  .modal-bg.show{display:flex;}
+  .modal{background:var(--panel);border:1px solid var(--line);border-radius:8px;
+    max-width:640px;max-height:80vh;overflow-y:auto;padding:22px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);}
+  .modal h2{margin:0 0 14px;font-size:16px;}
+  .modal h3{margin:18px 0 8px;font-size:13px;color:var(--accent);}
+  .modal table{width:100%;border-collapse:collapse;font-size:12px;}
+  .modal th,.modal td{text-align:left;padding:5px 8px;
+    border-bottom:1px solid var(--line);}
+  .modal td:first-child{font-family:ui-monospace,monospace;color:var(--accent);
+    width:90px;}
+  .modal .close{position:sticky;top:0;float:right;cursor:pointer;
+    color:var(--muted);background:var(--panel);padding:2px 8px;font-size:18px;
+    line-height:1;border:none;}
+  .modal code{background:var(--panel-alt);padding:1px 5px;border-radius:3px;
+    font-size:11px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="toolbar">
+    <button data-alias="L" title="Línea">Línea</button>
+    <button data-alias="PL" title="Polilínea">Polilínea</button>
+    <button data-alias="REC" title="Rectángulo">Rect</button>
+    <button data-alias="POL" title="Polígono">Polígono</button>
+    <button data-alias="C" title="Círculo">Círculo</button>
+    <button data-alias="A" title="Arco">Arco</button>
+    <button data-alias="EL" title="Elipse">Elipse</button>
+    <button data-alias="T" title="Texto">Texto</button>
+    <span class="sep"></span>
+    <button data-alias="M" title="Mover">Mover</button>
+    <button data-alias="CO" title="Copiar">Copiar</button>
+    <button data-alias="RO" title="Rotar">Rotar</button>
+    <button data-alias="SC" title="Escalar">Escala</button>
+    <button data-alias="MI" title="Simetría">Simetría</button>
+    <button data-alias="O" title="Desfase">Offset</button>
+    <span class="sep"></span>
+    <button data-alias="E" title="Borrar">Borrar</button>
+    <button data-alias="X" title="Descomponer">Explotar</button>
+    <span class="sep"></span>
+    <button data-alias="ZE" title="Zoom extensión">Zoom Ext</button>
+    <button data-alias="U" title="Deshacer">Deshacer</button>
+    <button data-alias="RE" title="Rehacer">Rehacer</button>
+    <span class="sep"></span>
+    <button data-alias="NEW" title="Nuevo">Nuevo</button>
+    <button data-alias="SAVE" title="Guardar JSON">Guardar</button>
+    <button data-alias="OPEN" title="Abrir JSON">Abrir</button>
+    <button data-alias="PNG" title="Exportar PNG">PNG</button>
+    <button data-alias="?" title="Ayuda">?</button>
+  </div>
+  <div id="main">
+    <div id="canvas-wrap"><canvas id="canvas"></canvas></div>
+    <div id="right-dock">
+      <div class="dock-section">
+        <div class="dock-title">Capas <button id="add-layer">+</button></div>
+        <div id="layers-list"></div>
+      </div>
+      <div class="dock-section" style="flex:1;min-height:0;">
+        <div class="dock-title">Propiedades</div>
+        <div id="props-list"><div class="empty">Sin selección</div></div>
+      </div>
+    </div>
+  </div>
+  <div id="bottom">
+    <div id="history"></div>
+    <div id="input-row">
+      <span id="prompt-label">Comando:</span>
+      <input id="cmd-input" autofocus autocomplete="off" spellcheck="false"
+             placeholder="alias + Enter  (?, L, C, REC, M, TR, ZE…)">
+    </div>
+  </div>
+  <div id="statusbar">
+    <span id="coord-label">X 0.000   Y 0.000</span>
+    <span id="zoom-label">zoom 20 px/u</span>
+    <span class="spacer"></span>
+    <span class="tog" data-tog="snap">SNAP</span>
+    <span class="tog" data-tog="grid">REJILLA</span>
+    <span class="tog" data-tog="ortho">ORTO</span>
+    <span class="tog" data-tog="polar">POLAR</span>
+    <span class="tog" data-tog="osnap">REFENT</span>
+    <span id="layer-label">capa: 0 [mm]</span>
+  </div>
+</div>
+
+<div class="modal-bg" id="help-modal">
+  <div class="modal">
+    <button class="close" onclick="document.getElementById('help-modal').classList.remove('show')">×</button>
+    <h2>VectorCAD Web — Comandos</h2>
+    <p style="color:var(--muted);font-size:12px;">Versión web del sistema de dibujo 2D paramétrico del <b>Centro Producción del Espacio · UDLA</b>.</p>
+    <h3>Entrada de puntos</h3>
+    <p style="font-size:12px;">
+      <code>x,y</code> absoluto · <code>@dx,dy</code> relativo ·
+      <code>@dist&lt;áng</code> polar relativo · <code>dist&lt;áng</code> polar absoluto ·
+      un número solo = distancia directa · clic en el lienzo.
+    </p>
+    <h3>Dibujo</h3>
+    <table id="help-table-draw"></table>
+    <h3>Edición</h3>
+    <table id="help-table-edit"></table>
+    <h3>Vista y sistema</h3>
+    <table id="help-table-view"></table>
+    <h3>Teclas y ratón</h3>
+    <p style="font-size:12px;line-height:1.7;">
+      <b>Rueda</b> zoom · <b>Botón central</b> o <b>Mayús+arrastrar</b> encuadre ·
+      <b>Esc</b> cancelar · <b>Supr</b> borrar selección · <b>Enter</b> repetir último comando ·
+      <b>↑</b>/<b>↓</b> historial · <b>F3</b> refent · <b>F7</b> rejilla · <b>F8</b> orto ·
+      <b>F9</b> snap · <b>F10</b> polar.
+    </p>
+    <p style="font-size:12px;color:var(--muted);">
+      Arrastra de derecha a izquierda para <b>captura</b> (cruza), de izquierda a derecha para <b>ventana</b>.
+      Mayús+clic o Ctrl+clic añade a la selección.
+    </p>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   1. VECTORES Y GEOMETRÍA BÁSICA
+   ============================================================ */
+const TOL = 1e-9;
+const V = {
+  add: (a,b) => [a[0]+b[0], a[1]+b[1]],
+  sub: (a,b) => [a[0]-b[0], a[1]-b[1]],
+  mul: (a,k) => [a[0]*k, a[1]*k],
+  dot: (a,b) => a[0]*b[0]+a[1]*b[1],
+  cross: (a,b) => a[0]*b[1]-a[1]*b[0],
+  len: a => Math.hypot(a[0], a[1]),
+  dist: (a,b) => Math.hypot(b[0]-a[0], b[1]-a[1]),
+  norm: a => { const n=Math.hypot(a[0],a[1]); return n>TOL ? [a[0]/n, a[1]/n] : [0,0]; },
+  perp: a => [-a[1], a[0]],
+  lerp: (a,b,t) => [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t],
+  angle: (a,b) => Math.atan2(b[1]-a[1], b[0]-a[0]),
+  rot: (p,c,ang) => {
+    const ca=Math.cos(ang), sa=Math.sin(ang);
+    const dx=p[0]-c[0], dy=p[1]-c[1];
+    return [c[0]+dx*ca-dy*sa, c[1]+dx*sa+dy*ca];
+  },
+  mirror: (p,a,b) => {
+    const d = V.sub(b,a);
+    const l2 = V.dot(d,d) || 1e-12;
+    const t = V.dot(V.sub(p,a), d) / l2;
+    const f = V.add(a, V.mul(d,t));
+    return [2*f[0]-p[0], 2*f[1]-p[1]];
+  }
+};
+const TAU = Math.PI * 2;
+const normAng = a => { a = a % TAU; return a < 0 ? a + TAU : a; };
+const angInArc = (a, a0, a1) => {
+  let span = normAng(a1 - a0);
+  if (span < TOL) span = TAU;
+  return normAng(a - a0) <= span + 1e-9;
+};
+const fmt = (v, n=4) => {
+  const s = v.toFixed(n).replace(/0+$/,'').replace(/\.$/,'');
+  return s === '' || s === '-' ? '0' : s;
+};
+
+function distPointSeg(p, a, b) {
+  const d = V.sub(b,a), l2 = V.dot(d,d);
+  if (l2 < TOL) return V.dist(p, a);
+  const t = Math.max(0, Math.min(1, V.dot(V.sub(p,a), d) / l2));
+  return V.dist(p, V.add(a, V.mul(d, t)));
+}
+function closestOnSeg(p, a, b) {
+  const d = V.sub(b,a), l2 = V.dot(d,d);
+  if (l2 < TOL) return a;
+  const t = Math.max(0, Math.min(1, V.dot(V.sub(p,a), d) / l2));
+  return V.add(a, V.mul(d, t));
+}
+function distPointArc(p, c, r, a0, a1) {
+  const a = Math.atan2(p[1]-c[1], p[0]-c[0]);
+  if (angInArc(a, a0, a1)) return Math.abs(V.dist(p, c) - r);
+  const e0 = [c[0]+r*Math.cos(a0), c[1]+r*Math.sin(a0)];
+  const e1 = [c[0]+r*Math.cos(a1), c[1]+r*Math.sin(a1)];
+  return Math.min(V.dist(p, e0), V.dist(p, e1));
+}
+function primDist(pr, p) {
+  if (pr[0] === "seg") return distPointSeg(p, pr[1], pr[2]);
+  return distPointArc(p, pr[1], pr[2], pr[3], pr[4]);
+}
+function intLineLine(p1,p2,p3,p4,inf1=false,inf2=false) {
+  const d1 = V.sub(p2,p1), d2 = V.sub(p4,p3);
+  const den = V.cross(d1,d2);
+  if (Math.abs(den) < 1e-12) return [];
+  const w = V.sub(p3,p1);
+  const t = V.cross(w,d2)/den, u = V.cross(w,d1)/den;
+  if (!inf1 && !(t >= -1e-9 && t <= 1+1e-9)) return [];
+  if (!inf2 && !(u >= -1e-9 && u <= 1+1e-9)) return [];
+  return [V.add(p1, V.mul(d1,t))];
+}
+function intLineCircle(p1,p2,c,r,inf=false) {
+  const d = V.sub(p2,p1), f = V.sub(p1,c);
+  const a = V.dot(d,d);
+  if (a < 1e-18) return [];
+  const b = 2*V.dot(f,d), cc = V.dot(f,f) - r*r;
+  const disc = b*b - 4*a*cc;
+  if (disc < -1e-12) return [];
+  const sq = Math.sqrt(Math.max(disc,0));
+  const out = [];
+  for (const t of [(-b-sq)/(2*a), (-b+sq)/(2*a)]) {
+    if (inf || (t >= -1e-9 && t <= 1+1e-9)) out.push(V.add(p1, V.mul(d,t)));
+  }
+  return out;
+}
+function intCircleCircle(c1,r1,c2,r2) {
+  const d = V.dist(c1,c2);
+  if (d < TOL || d > r1+r2+1e-9 || d < Math.abs(r1-r2)-1e-9) return [];
+  const a = (r1*r1 - r2*r2 + d*d) / (2*d);
+  const h2 = r1*r1 - a*a;
+  const h = Math.sqrt(Math.max(h2, 0));
+  const base = V.add(c1, V.mul(V.norm(V.sub(c2,c1)), a));
+  const n = V.perp(V.norm(V.sub(c2,c1)));
+  if (h < 1e-9) return [base];
+  return [V.add(base, V.mul(n,h)), V.sub(base, V.mul(n,h))];
+}
+function primInt(p, q, infP=false, infQ=false) {
+  if (p[0]==="seg" && q[0]==="seg") return intLineLine(p[1],p[2],q[1],q[2],infP,infQ);
+  if (p[0]==="seg" && q[0]==="arc") {
+    const pts = intLineCircle(p[1],p[2],q[1],q[2],infP);
+    return pts.filter(x => angInArc(Math.atan2(x[1]-q[1][1], x[0]-q[1][0]), q[3], q[4]));
+  }
+  if (p[0]==="arc" && q[0]==="seg") return primInt(q, p, infQ, infP);
+  const pts = intCircleCircle(p[1],p[2],q[1],q[2]);
+  return pts.filter(x =>
+    angInArc(Math.atan2(x[1]-p[1][1], x[0]-p[1][0]), p[3], p[4]) &&
+    angInArc(Math.atan2(x[1]-q[1][1], x[0]-q[1][0]), q[3], q[4]));
+}
+function arcPoints(c, r, a0, a1, seg=0) {
+  let span = normAng(a1 - a0);
+  if (span < TOL) span = TAU;
+  if (seg <= 0) seg = Math.max(8, Math.ceil(Math.abs(span) / (Math.PI/36)));
+  const out = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = a0 + span * i / seg;
+    out.push([c[0]+r*Math.cos(a), c[1]+r*Math.sin(a)]);
+  }
+  return out;
+}
+function polyArea(pts) {
+  let a = 0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i+1) % pts.length;
+    a += pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1];
+  }
+  return a/2;
+}
+function polyCentroid(pts) {
+  const a = polyArea(pts);
+  if (Math.abs(a) < 1e-12) {
+    const n = Math.max(pts.length,1);
+    return [pts.reduce((s,p)=>s+p[0],0)/n, pts.reduce((s,p)=>s+p[1],0)/n];
+  }
+  let cx=0, cy=0;
+  for (let i = 0; i < pts.length; i++) {
+    const j = (i+1)%pts.length;
+    const cr = pts[i][0]*pts[j][1] - pts[j][0]*pts[i][1];
+    cx += (pts[i][0]+pts[j][0]) * cr;
+    cy += (pts[i][1]+pts[j][1]) * cr;
+  }
+  return [cx/(6*a), cy/(6*a)];
+}
+function offsetPolyline(pts, d, closed) {
+  const n = pts.length;
+  if (n < 2) return pts.slice();
+  const segs = [];
+  const rng = closed ? [...Array(n).keys()] : [...Array(n-1).keys()];
+  for (const i of rng) {
+    const a = pts[i], b = pts[(i+1)%n];
+    const nrm = V.mul(V.perp(V.norm(V.sub(b,a))), d);
+    segs.push([V.add(a,nrm), V.add(b,nrm)]);
+  }
+  const out = [];
+  const m = segs.length;
+  if (!closed) out.push(segs[0][0]);
+  for (let i = 0; i < (closed ? m : m-1); i++) {
+    const s1 = segs[i], s2 = segs[(i+1)%m];
+    const ip = intLineLine(s1[0],s1[1],s2[0],s2[1],true,true);
+    out.push(ip.length ? ip[0] : s1[1]);
+  }
+  if (!closed) out.push(segs[segs.length-1][1]);
+  return out;
+}
+
+/* ============================================================
+   2. ENTIDADES
+   ============================================================ */
+let _seq = 0;
+class Entity {
+  constructor(opts={}) {
+    this.id = ++_seq;
+    this.layer = opts.layer || "0";
+    this.color = opts.color || null;
+    this.selected = false;
+  }
+  primitives() { return []; }
+  sample() {
+    const o = [];
+    for (const p of this.primitives()) {
+      if (p[0]==="seg") o.push(p[1], p[2]);
+      else o.push(...arcPoints(p[1],p[2],p[3],p[4]));
+    }
+    return o;
+  }
+  bbox() {
+    const pts = this.sample();
+    if (!pts.length) return [0,0,0,0];
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for (const p of pts) {
+      if (p[0]<x0) x0=p[0]; if (p[1]<y0) y0=p[1];
+      if (p[0]>x1) x1=p[0]; if (p[1]>y1) y1=p[1];
+    }
+    return [x0,y0,x1,y1];
+  }
+  snaps() { return []; }
+  distTo(p) {
+    let best = Infinity;
+    for (const pr of this.primitives()) best = Math.min(best, primDist(pr, p));
+    return best;
+  }
+  contains(p, tol) { return this.distTo(p) <= tol; }
+  translate(d) { this._map(p => V.add(p, d)); }
+  rotate(c, a) { this._map(p => V.rot(p, c, a)); if (this._rotExtra) this._rotExtra(a); }
+  scale(c, f) { this._map(p => V.add(c, V.mul(V.sub(p, c), f))); if (this._scaleExtra) this._scaleExtra(Math.abs(f)); }
+  mirror(a, b) {
+    this._map(p => V.mirror(p, a, b));
+    if (this._mirrorExtra) this._mirrorExtra(V.angle(a,b));
+  }
+  clone() {
+    const c = structuredClone(this);
+    Object.setPrototypeOf(c, Object.getPrototypeOf(this));
+    c.id = ++_seq;
+    c.selected = false;
+    return c;
+  }
+  length() {
+    let tot = 0;
+    for (const pr of this.primitives()) {
+      if (pr[0]==="seg") tot += V.dist(pr[1], pr[2]);
+      else {
+        const span = normAng(pr[4]-pr[3]) || TAU;
+        tot += pr[2] * span;
+      }
+    }
+    return tot;
+  }
+  area() { const p = this.polygon(); return p ? Math.abs(polyArea(p)) : 0; }
+  polygon() { return null; }
+  explode() { return []; }
+  draw(ctx, view, pen) {
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    ctx.setLineDash(pen.dash || []);
+    for (const pr of this.primitives()) {
+      if (pr[0]==="seg") {
+        const a = view.toScreen(pr[1]), b = view.toScreen(pr[2]);
+        ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+      } else {
+        const pts = arcPoints(pr[1],pr[2],pr[3],pr[4]);
+        const scr = pts.map(p => view.toScreen(p));
+        ctx.beginPath();
+        ctx.moveTo(scr[0][0], scr[0][1]);
+        for (let i = 1; i < scr.length; i++) ctx.lineTo(scr[i][0], scr[i][1]);
+        ctx.stroke();
+      }
+    }
+    ctx.setLineDash([]);
+  }
+  props() { return []; }
+  toDict() {
+    return { kind: this.kind, layer: this.layer, color: this.color };
+  }
+}
+
+class Line extends Entity {
+  constructor(p1, p2, opts={}) { super(opts); this.kind = "Line"; this.p1 = [...p1]; this.p2 = [...p2]; }
+  primitives() { return [["seg", this.p1, this.p2]]; }
+  snaps() { return [["end",this.p1],["end",this.p2],["mid",V.lerp(this.p1,this.p2,.5)]]; }
+  _map(f) { this.p1 = f(this.p1); this.p2 = f(this.p2); }
+  explode() { return []; }
+  props() {
+    return [
+      ["x1","Inicio X", fmt(this.p1[0])], ["y1","Inicio Y", fmt(this.p1[1])],
+      ["x2","Fin X", fmt(this.p2[0])], ["y2","Fin Y", fmt(this.p2[1])],
+      ["len","Longitud", fmt(V.dist(this.p1,this.p2))],
+      ["ang","Ángulo", fmt(Math.atan2(this.p2[1]-this.p1[1], this.p2[0]-this.p1[0])*180/Math.PI, 2)]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), { p1:[...this.p1], p2:[...this.p2] }); }
+  static fromDict(d) { return new Line(d.p1, d.p2, { layer: d.layer, color: d.color }); }
+}
+
+class Polyline extends Entity {
+  constructor(points, closed, opts={}) {
+    super(opts); this.kind = "Polyline";
+    this.points = points.map(p => [...p]);
+    this.closed = !!closed;
+  }
+  primitives() {
+    const out = [];
+    const n = this.points.length;
+    const rng = this.closed ? [...Array(n).keys()] : [...Array(n-1).keys()];
+    for (const i of rng) out.push(["seg", this.points[i], this.points[(i+1)%n]]);
+    return out;
+  }
+  snaps() {
+    const out = this.points.map(p => ["end", p]);
+    for (const pr of this.primitives()) out.push(["mid", V.lerp(pr[1],pr[2],.5)]);
+    if (this.closed && this.points.length > 2) out.push(["cen", polyCentroid(this.points)]);
+    return out;
+  }
+  _map(f) { this.points = this.points.map(f); }
+  polygon() { return this.closed && this.points.length >= 3 ? this.points.slice() : null; }
+  explode() { return this.primitives().map(pr => new Line(pr[1], pr[2], { layer: this.layer, color: this.color })); }
+  draw(ctx, view, pen) {
+    if (this.points.length < 2) return;
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    ctx.setLineDash(pen.dash || []);
+    const scr = this.points.map(p => view.toScreen(p));
+    ctx.beginPath();
+    ctx.moveTo(scr[0][0], scr[0][1]);
+    for (let i = 1; i < scr.length; i++) ctx.lineTo(scr[i][0], scr[i][1]);
+    if (this.closed) ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  props() {
+    return [
+      ["n","Vértices", String(this.points.length)],
+      ["closed","Cerrada (0/1)", this.closed ? "1" : "0"],
+      ["len","Longitud", fmt(this.length())],
+      ["area","Área", fmt(this.area())]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), { points: this.points.map(p=>[...p]), closed: this.closed }); }
+  static fromDict(d) { return new Polyline(d.points, d.closed, { layer: d.layer, color: d.color }); }
+}
+
+class Circle extends Entity {
+  constructor(center, radius, opts={}) { super(opts); this.kind = "Circle"; this.center = [...center]; this.radius = radius; }
+  primitives() { return [["arc", this.center, this.radius, 0, TAU]]; }
+  snaps() {
+    const c = this.center, r = this.radius;
+    return [["cen",c],["qua",[c[0]+r,c[1]]],["qua",[c[0]-r,c[1]]],
+            ["qua",[c[0],c[1]+r]],["qua",[c[0],c[1]-r]]];
+  }
+  _map(f) { this.center = f(this.center); }
+  _scaleExtra(f) { this.radius *= f; }
+  polygon() { return arcPoints(this.center, this.radius, 0, TAU, 64).slice(0,-1); }
+  draw(ctx, view, pen) {
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    ctx.setLineDash(pen.dash || []);
+    const c = view.toScreen(this.center);
+    const r = this.radius * view.scale;
+    ctx.beginPath(); ctx.arc(c[0], c[1], r, 0, TAU); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  props() {
+    return [
+      ["cx","Centro X", fmt(this.center[0])], ["cy","Centro Y", fmt(this.center[1])],
+      ["r","Radio", fmt(this.radius)], ["d","Diámetro", fmt(2*this.radius)],
+      ["area","Área", fmt(this.area())]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), { center:[...this.center], radius: this.radius }); }
+  static fromDict(d) { return new Circle(d.center, d.radius, { layer: d.layer, color: d.color }); }
+}
+
+class Arc extends Entity {
+  constructor(center, radius, a0, a1, opts={}) {
+    super(opts); this.kind = "Arc";
+    this.center = [...center]; this.radius = radius; this.a0 = a0; this.a1 = a1;
+  }
+  primitives() { return [["arc", this.center, this.radius, this.a0, this.a1]]; }
+  pt(a) { return [this.center[0]+this.radius*Math.cos(a), this.center[1]+this.radius*Math.sin(a)]; }
+  snaps() {
+    const mid = this.a0 + (normAng(this.a1 - this.a0) || TAU) / 2;
+    return [["cen",this.center],["end",this.pt(this.a0)],["end",this.pt(this.a1)],["mid",this.pt(mid)]];
+  }
+  _map(f) { this.center = f(this.center); }
+  _rotExtra(a) { this.a0 += a; this.a1 += a; }
+  _scaleExtra(f) { this.radius *= f; }
+  _mirrorExtra(ax) { const a0=this.a0, a1=this.a1; this.a0 = 2*ax-a1; this.a1 = 2*ax-a0; }
+  draw(ctx, view, pen) {
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    ctx.setLineDash(pen.dash || []);
+    const pts = arcPoints(this.center, this.radius, this.a0, this.a1);
+    const scr = pts.map(p => view.toScreen(p));
+    ctx.beginPath();
+    ctx.moveTo(scr[0][0], scr[0][1]);
+    for (let i = 1; i < scr.length; i++) ctx.lineTo(scr[i][0], scr[i][1]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  props() {
+    return [
+      ["cx","Centro X", fmt(this.center[0])], ["cy","Centro Y", fmt(this.center[1])],
+      ["r","Radio", fmt(this.radius)],
+      ["a0","Áng. inicial", fmt(this.a0*180/Math.PI, 2)],
+      ["a1","Áng. final", fmt(this.a1*180/Math.PI, 2)],
+      ["len","Longitud", fmt(this.length())]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), {
+    center:[...this.center], radius: this.radius, a0: this.a0, a1: this.a1 }); }
+  static fromDict(d) { return new Arc(d.center, d.radius, d.a0, d.a1, { layer: d.layer, color: d.color }); }
+}
+
+class Ellipse extends Entity {
+  constructor(center, rx, ry, angle=0, opts={}) {
+    super(opts); this.kind = "Ellipse";
+    this.center = [...center]; this.rx = rx; this.ry = ry; this.angle = angle;
+  }
+  polygon(n=64) {
+    const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const t = TAU * i / n;
+      const x = this.rx*Math.cos(t), y = this.ry*Math.sin(t);
+      out.push([this.center[0]+x*ca-y*sa, this.center[1]+x*sa+y*ca]);
+    }
+    return out;
+  }
+  primitives() {
+    const pts = this.polygon(48);
+    const out = [];
+    for (let i = 0; i < pts.length; i++) out.push(["seg", pts[i], pts[(i+1)%pts.length]]);
+    return out;
+  }
+  snaps() {
+    const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
+    const out = [["cen", this.center]];
+    for (const [x,y] of [[this.rx,0],[-this.rx,0],[0,this.ry],[0,-this.ry]]) {
+      out.push(["qua", [this.center[0]+x*ca-y*sa, this.center[1]+x*sa+y*ca]]);
+    }
+    return out;
+  }
+  _map(f) { this.center = f(this.center); }
+  _rotExtra(a) { this.angle += a; }
+  _scaleExtra(f) { this.rx *= f; this.ry *= f; }
+  _mirrorExtra(ax) { this.angle = 2*ax - this.angle; }
+  draw(ctx, view, pen) {
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    ctx.setLineDash(pen.dash || []);
+    const pts = this.polygon(72);
+    const scr = pts.map(p => view.toScreen(p));
+    ctx.beginPath();
+    ctx.moveTo(scr[0][0], scr[0][1]);
+    for (let i = 1; i < scr.length; i++) ctx.lineTo(scr[i][0], scr[i][1]);
+    ctx.closePath();
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  props() {
+    return [
+      ["cx","Centro X", fmt(this.center[0])], ["cy","Centro Y", fmt(this.center[1])],
+      ["rx","Radio mayor", fmt(this.rx)], ["ry","Radio menor", fmt(this.ry)],
+      ["rot","Rotación", fmt(this.angle*180/Math.PI, 2)]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), {
+    center:[...this.center], rx:this.rx, ry:this.ry, angle:this.angle }); }
+  static fromDict(d) { return new Ellipse(d.center, d.rx, d.ry, d.angle||0, { layer: d.layer, color: d.color }); }
+}
+
+class PointEnt extends Entity {
+  constructor(pos, opts={}) { super(opts); this.kind = "Point"; this.pos = [...pos]; }
+  primitives() { return []; }
+  sample() { return [this.pos]; }
+  bbox() { return [this.pos[0], this.pos[1], this.pos[0], this.pos[1]]; }
+  snaps() { return [["nod", this.pos]]; }
+  distTo(p) { return V.dist(p, this.pos); }
+  _map(f) { this.pos = f(this.pos); }
+  draw(ctx, view, pen) {
+    ctx.strokeStyle = pen.color;
+    ctx.lineWidth = pen.width;
+    const s = view.toScreen(this.pos);
+    ctx.beginPath();
+    ctx.moveTo(s[0]-5, s[1]); ctx.lineTo(s[0]+5, s[1]);
+    ctx.moveTo(s[0], s[1]-5); ctx.lineTo(s[0], s[1]+5);
+    ctx.stroke();
+  }
+  props() { return [["x","X", fmt(this.pos[0])],["y","Y", fmt(this.pos[1])]]; }
+  toDict() { return Object.assign(super.toDict(), { pos: [...this.pos] }); }
+  static fromDict(d) { return new PointEnt(d.pos, { layer: d.layer, color: d.color }); }
+}
+
+class TextEnt extends Entity {
+  constructor(pos, text, height=2.5, angle=0, opts={}) {
+    super(opts); this.kind = "Text";
+    this.pos = [...pos]; this.text = text; this.height = height; this.angle = angle;
+  }
+  primitives() { return []; }
+  bbox() {
+    const w = Math.max(this.text.length, 1) * this.height * 0.6;
+    const ca = Math.cos(this.angle), sa = Math.sin(this.angle);
+    const corners = [[0,0],[w,0],[w,this.height],[0,this.height]];
+    const pts = corners.map(([x,y]) => [this.pos[0]+x*ca-y*sa, this.pos[1]+x*sa+y*ca]);
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for (const p of pts) {
+      if (p[0]<x0) x0=p[0]; if (p[1]<y0) y0=p[1];
+      if (p[0]>x1) x1=p[0]; if (p[1]>y1) y1=p[1];
+    }
+    return [x0,y0,x1,y1];
+  }
+  sample() { const b = this.bbox(); return [[b[0],b[1]],[b[2],b[1]],[b[2],b[3]],[b[0],b[3]]]; }
+  snaps() { return [["ins", this.pos]]; }
+  distTo(p) {
+    const b = this.bbox();
+    if (p[0]>=b[0] && p[0]<=b[2] && p[1]>=b[1] && p[1]<=b[3]) return 0;
+    return Math.min(
+      distPointSeg(p,[b[0],b[1]],[b[2],b[1]]),
+      distPointSeg(p,[b[2],b[1]],[b[2],b[3]]),
+      distPointSeg(p,[b[2],b[3]],[b[0],b[3]]),
+      distPointSeg(p,[b[0],b[3]],[b[0],b[1]]));
+  }
+  _map(f) { this.pos = f(this.pos); }
+  _rotExtra(a) { this.angle += a; }
+  _scaleExtra(f) { this.height *= f; }
+  _mirrorExtra(ax) { this.angle = 2*ax - this.angle; }
+  draw(ctx, view, pen) {
+    const s = view.toScreen(this.pos);
+    ctx.save();
+    ctx.translate(s[0], s[1]);
+    ctx.rotate(-this.angle);
+    ctx.fillStyle = pen.color;
+    ctx.font = `${Math.max(8, this.height * view.scale)}px sans-serif`;
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(this.text, 0, 0);
+    ctx.restore();
+  }
+  props() {
+    return [
+      ["txt","Texto", this.text], ["h","Altura", fmt(this.height)],
+      ["rot","Rotación", fmt(this.angle*180/Math.PI, 2)],
+      ["x","X", fmt(this.pos[0])], ["y","Y", fmt(this.pos[1])]
+    ];
+  }
+  toDict() { return Object.assign(super.toDict(), {
+    pos:[...this.pos], text:this.text, height:this.height, angle:this.angle }); }
+  static fromDict(d) { return new TextEnt(d.pos, d.text, d.height, d.angle||0, { layer: d.layer, color: d.color }); }
+}
+
+const ENTITY_TYPES = { Line, Polyline, Circle, Arc, Ellipse, Point: PointEnt, Text: TextEnt };
+function entityFromDict(d) {
+  const C = ENTITY_TYPES[d.kind];
+  return C ? C.fromDict(d) : null;
+}
+
+/* ============================================================
+   3. DOCUMENTO Y CAPAS
+   ============================================================ */
+const PALETTE = ["#e2e2e6","#ff5252","#ffd54f","#66bb6a","#4fc3f7",
+                 "#ba68c8","#ff8a65","#4db6ac","#9e9e9e","#f06292"];
+const UNITS = "mm";
+
+class Layer {
+  constructor(name, color="#e2e2e6") {
+    this.name = name; this.color = color;
+    this.visible = true; this.locked = false;
+  }
+}
+
+class Document {
+  constructor() {
+    this.entities = [];
+    this.layers = { "0": new Layer("0") };
+    this.currentLayer = "0";
+    this.units = UNITS;
+    this.modified = false;
+    this._undo = [];
+    this._redo = [];
+  }
+  addLayer(name, color) {
+    if (!this.layers[name]) {
+      if (!color) color = PALETTE[Object.keys(this.layers).length % PALETTE.length];
+      this.layers[name] = new Layer(name, color);
+    }
+    return this.layers[name];
+  }
+  layerOf(e) { return this.layers[e.layer] || this.layers[this.currentLayer]; }
+  colorOf(e) { return e.color || this.layerOf(e).color; }
+  isEditable(e) { const l = this.layers[e.layer]; return !!l && l.visible && !l.locked; }
+  visibleEntities() { return this.entities.filter(e => (this.layers[e.layer]||{}).visible !== false); }
+  add(e) {
+    if (!this.layers[e.layer]) e.layer = this.currentLayer;
+    this.entities.push(e);
+    this.modified = true;
+    return e;
+  }
+  remove(ents) {
+    const ids = new Set(ents.map(e => e.id));
+    this.entities = this.entities.filter(e => !ids.has(e.id));
+    this.modified = true;
+  }
+  selection() { return this.entities.filter(e => e.selected); }
+  clearSelection() { for (const e of this.entities) e.selected = false; }
+  selectAll() { for (const e of this.entities) if (this.isEditable(e)) e.selected = true; }
+  bbox(ents) {
+    ents = ents || this.visibleEntities();
+    if (!ents.length) return null;
+    let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    for (const e of ents) {
+      const b = e.bbox();
+      if (!isFinite(b[0])) continue;
+      if (b[0]<x0) x0=b[0]; if (b[1]<y0) y0=b[1];
+      if (b[2]>x1) x1=b[2]; if (b[3]>y1) y1=b[3];
+    }
+    if (!isFinite(x0)) return null;
+    return [x0,y0,x1,y1];
+  }
+  _snapshot() {
+    return {
+      entities: this.entities.map(e => e.toDict().kind ? Object.assign({}, e.toDict(), {id:e.id, selected:e.selected}) : null),
+      layers: Object.fromEntries(Object.entries(this.layers).map(([k,v]) => [k, {...v}])),
+      currentLayer: this.currentLayer,
+      entitiesRaw: this.entities.map(e => structuredClone(e))
+    };
+  }
+  pushUndo(label="") {
+    this._undo.push({ label, raw: this.entities.map(e => structuredClone(e)) });
+    if (this._undo.length > 80) this._undo.shift();
+    this._redo = [];
+    this.modified = true;
+  }
+  undo() {
+    if (!this._undo.length) return null;
+    const s = this._undo.pop();
+    this._redo.push({ label: s.label, raw: this.entities.map(e => structuredClone(e)) });
+    this.entities = s.raw.map(e => { const c = structuredClone(e); Object.setPrototypeOf(c, Object.getPrototypeOf(e)); return c; });
+    this.modified = true;
+    return s.label || "operación";
+  }
+  redo() {
+    if (!this._redo.length) return null;
+    const s = this._redo.pop();
+    this._undo.push({ label: s.label, raw: this.entities.map(e => structuredClone(e)) });
+    this.entities = s.raw.map(e => { const c = structuredClone(e); Object.setPrototypeOf(c, Object.getPrototypeOf(e)); return c; });
+    this.modified = true;
+    return s.label || "operación";
+  }
+  toJSON() {
+    return JSON.stringify({
+      app: "VectorCAD Web", version: "2.0", units: this.units,
+      currentLayer: this.currentLayer,
+      layers: Object.values(this.layers).map(l => ({...l})),
+      entities: this.entities.map(e => e.toDict())
+    }, null, 1);
+  }
+  loadJSON(text) {
+    const d = JSON.parse(text);
+    this.layers = {};
+    for (const ld of (d.layers || [])) {
+      const l = new Layer(ld.name, ld.color || "#e2e2e6");
+      l.visible = ld.visible !== false; l.locked = !!ld.locked;
+      this.layers[l.name] = l;
+    }
+    if (!Object.keys(this.layers).length) this.layers = { "0": new Layer("0") };
+    this.currentLayer = d.currentLayer || Object.keys(this.layers)[0];
+    this.units = d.units || UNITS;
+    this.entities = [];
+    for (const ed of (d.entities || [])) {
+      const e = entityFromDict(ed);
+      if (e) { e.selected = false; this.entities.push(e); }
+    }
+    this._undo = []; this._redo = [];
+    this.modified = false;
+  }
+  pickAt(p, tol) {
+    let best = null, bd = Infinity;
+    for (let i = this.entities.length-1; i >= 0; i--) {
+      const e = this.entities[i];
+      if (!this.isEditable(e)) continue;
+      const d = e.distTo(p);
+      if (d <= tol && d < bd) { best = e; bd = d; }
+    }
+    return best;
+  }
+}
+
+/* ============================================================
+   4. LIENZO
+   ============================================================ */
+class Canvas {
+  constructor(el, doc) {
+    this.el = el;
+    this.doc = doc;
+    this.scale = 20;
+    this.panX = el.clientWidth / 2;
+    this.panY = el.clientHeight / 2;
+    this.grid = 1;
+    this.showGrid = true;
+    this.snapOn = false;
+    this.osnapOn = true;
+    this.ortho = false;
+    this.polar = false;
+    this.polarStep = 15;
+    this.osnapModes = { end:true, mid:true, cen:true, qua:true, int:true, per:true, nod:true, ins:true, nea:false };
+    this.mouseScreen = [0,0];
+    this.mouseWorld = [0,0];
+    this.osnapHit = null;
+    this.basePoint = null;
+    this.previewFn = null;
+    this.pickMode = false;
+    this._panning = false;
+    this._panFrom = null;
+    this._selFrom = null;
+    this._selRect = null;
+    this._viewStack = [];
+    this.onPointPicked = null;
+    this.onMouseMove = null;
+    this.onSelectionChanged = null;
+    this.onZoomChanged = null;
+    this._setupCanvas();
+    this._bindEvents();
+    this.resize();
+  }
+  _setupCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.el.clientWidth, h = this.el.clientHeight;
+    this.el.width = w * dpr;
+    this.el.height = h * dpr;
+    this.ctx = this.el.getContext("2d");
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this._w = w; this._h = h;
+    this._dpr = dpr;
+  }
+  resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const w = this.el.clientWidth, h = this.el.clientHeight;
+    if (w === 0 || h === 0) return;
+    if (this._w && this._h) {
+      this.panX += (w - this._w) / 2;
+      this.panY += (h - this._h) / 2;
+    }
+    this.el.width = w * dpr;
+    this.el.height = h * dpr;
+    this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    this._w = w; this._h = h; this._dpr = dpr;
+    this.draw();
+  }
+  toScreen(p) { return [p[0]*this.scale + this.panX, -p[1]*this.scale + this.panY]; }
+  toWorld(s) { return [(s[0]-this.panX)/this.scale, -(s[1]-this.panY)/this.scale]; }
+  px(n) { return n / this.scale; }
+  pushView() {
+    this._viewStack.push({ scale: this.scale, panX: this.panX, panY: this.panY });
+    if (this._viewStack.length > 30) this._viewStack.shift();
+  }
+  prevView() {
+    if (this._viewStack.length) {
+      const v = this._viewStack.pop();
+      this.scale = v.scale; this.panX = v.panX; this.panY = v.panY;
+      this.draw(); if (this.onZoomChanged) this.onZoomChanged();
+    }
+  }
+  zoomAt(sp, factor) {
+    const before = this.toWorld(sp);
+    this.scale = Math.max(1e-3, Math.min(this.scale * factor, 1e6));
+    this.panX = sp[0] - before[0] * this.scale;
+    this.panY = sp[1] + before[1] * this.scale;
+    this.draw();
+    if (this.onZoomChanged) this.onZoomChanged();
+  }
+  zoomBox(x0,y0,x1,y1,margin=0.08) {
+    const w = Math.max(x1-x0, 1e-6), h = Math.max(y1-y0, 1e-6);
+    this.pushView();
+    this.scale = Math.max(1e-3, Math.min(
+      this._w * (1-2*margin) / w,
+      this._h * (1-2*margin) / h));
+    const cx = (x0+x1)/2, cy = (y0+y1)/2;
+    this.panX = this._w/2 - cx * this.scale;
+    this.panY = this._h/2 + cy * this.scale;
+    this.draw();
+    if (this.onZoomChanged) this.onZoomChanged();
+  }
+  zoomExtents(ents) {
+    const bb = this.doc.bbox(ents);
+    if (!bb) {
+      this.pushView();
+      this.scale = 20;
+      this.panX = this._w/2;
+      this.panY = this._h/2;
+      this.draw();
+      if (this.onZoomChanged) this.onZoomChanged();
+      return;
+    }
+    let [x0,y0,x1,y1] = bb;
+    if (x1-x0 < 1e-6 && y1-y0 < 1e-6) {
+      x0 -= 10; y0 -= 10; x1 += 10; y1 += 10;
+    }
+    this.zoomBox(x0,y0,x1,y1);
+  }
+  resolvePoint(sp) {
+    let w = this.toWorld(sp);
+    if (this.osnapHit) return this.osnapHit[1];
+    if (this.basePoint && (this.ortho || this.polar)) {
+      const b = this.basePoint;
+      const d = V.sub(w, b);
+      if (this.ortho) {
+        if (Math.abs(d[0]) >= Math.abs(d[1])) w = [w[0], b[1]];
+        else w = [b[0], w[1]];
+      } else {
+        const step = this.polarStep * Math.PI / 180;
+        const a = Math.round(Math.atan2(d[1],d[0]) / step) * step;
+        const L = V.len(d);
+        w = V.add(b, [L*Math.cos(a), L*Math.sin(a)]);
+      }
+    }
+    if (this.snapOn && this.grid > 0) {
+      w = [Math.round(w[0]/this.grid)*this.grid, Math.round(w[1]/this.grid)*this.grid];
+    }
+    return w;
+  }
+  _updateOsnap(sp) {
+    this.osnapHit = null;
+    if (!this.osnapOn) return;
+    const tol = 14, tolWorld = this.px(tol*3);
+    const w = this.mouseWorld;
+    const near = [];
+    for (const e of this.doc.visibleEntities()) {
+      const b = e.bbox();
+      if (b[0]-tolWorld <= w[0] && w[0] <= b[2]+tolWorld &&
+          b[1]-tolWorld <= w[1] && w[1] <= b[3]+tolWorld) near.push(e);
+    }
+    let best = null, bestD = tol;
+    for (const e of near) {
+      for (const [kind, p] of e.snaps()) {
+        if (!this.osnapModes[kind]) continue;
+        const s = this.toScreen(p);
+        const d = Math.hypot(s[0]-sp[0], s[1]-sp[1]);
+        if (d < bestD) { bestD = d; best = [kind, p]; }
+      }
+    }
+    if (!best && this.osnapModes.int && near.length > 1) {
+      for (let i = 0; i < near.length; i++) {
+        for (let j = i+1; j < near.length; j++) {
+          for (const p1 of near[i].primitives()) {
+            for (const p2 of near[j].primitives()) {
+              for (const ip of primInt(p1, p2)) {
+                const s = this.toScreen(ip);
+                const d = Math.hypot(s[0]-sp[0], s[1]-sp[1]);
+                if (d < bestD) { bestD = d; best = ["int", ip]; }
+              }
+            }
+          }
+        }
+      }
+    }
+    if (!best && this.basePoint && this.osnapModes.per) {
+      for (const e of near) {
+        for (const pr of e.primitives()) {
+          if (pr[0] !== "seg") continue;
+          const fp = closestOnSeg(this.basePoint, pr[1], pr[2]);
+          const s = this.toScreen(fp);
+          const d = Math.hypot(s[0]-sp[0], s[1]-sp[1]);
+          if (d < bestD) { bestD = d; best = ["per", fp]; }
+        }
+      }
+    }
+    this.osnapHit = best;
+  }
+  _bindEvents() {
+    const el = this.el;
+    el.addEventListener("wheel", e => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect();
+      const sp = [e.clientX - rect.left, e.clientY - rect.top];
+      const f = e.deltaY < 0 ? 1.15 : 1/1.15;
+      this.zoomAt(sp, f);
+    }, { passive: false });
+    el.addEventListener("mousedown", e => {
+      const rect = el.getBoundingClientRect();
+      const sp = [e.clientX - rect.left, e.clientY - rect.top];
+      if (e.button === 1 || (e.button === 0 && e.shiftKey && !this.pickMode)) {
+        this._panning = true;
+        this._panFrom = sp;
+        el.style.cursor = "grabbing";
+        e.preventDefault();
+        return;
+      }
+      if (e.button === 0) {
+        if (this.pickMode) {
+          const w = this.resolvePoint(sp);
+          if (this.onPointPicked) this.onPointPicked(w);
+          return;
+        }
+        this._selFrom = sp;
+      }
+    });
+    el.addEventListener("mousemove", e => {
+      const rect = el.getBoundingClientRect();
+      const sp = [e.clientX - rect.left, e.clientY - rect.top];
+      this.mouseScreen = sp;
+      this.mouseWorld = this.toWorld(sp);
+      if (this._panning && this._panFrom) {
+        this.panX += sp[0] - this._panFrom[0];
+        this.panY += sp[1] - this._panFrom[1];
+        this._panFrom = sp;
+        this.draw();
+        return;
+      }
+      if (this._selFrom) {
+        this._selRect = [Math.min(this._selFrom[0], sp[0]),
+                         Math.min(this._selFrom[1], sp[1]),
+                         Math.max(this._selFrom[0], sp[0]),
+                         Math.max(this._selFrom[1], sp[1])];
+        this._selCrossing = sp[0] < this._selFrom[0];
+      }
+      this._updateOsnap(sp);
+      const w = this.resolvePoint(sp);
+      if (this.onMouseMove) this.onMouseMove(w);
+      this.draw();
+    });
+    const endDrag = e => {
+      if (this._panning) {
+        this._panning = false;
+        this._panFrom = null;
+        el.style.cursor = this.pickMode ? "crosshair" : "default";
+        return;
+      }
+      if (this._selFrom && e.button === 0) {
+        const rect = el.getBoundingClientRect();
+        const sp = [e.clientX - rect.left, e.clientY - rect.top];
+        const moved = Math.hypot(sp[0]-this._selFrom[0], sp[1]-this._selFrom[1]);
+        const add = e.shiftKey || e.ctrlKey || e.metaKey;
+        if (moved < 4) {
+          this._clickSelect(this.toWorld(sp), add);
+        } else {
+          const crossing = sp[0] < this._selFrom[0];
+          const r = this._selRect;
+          const a = this.toWorld([r[0],r[1]]), b = this.toWorld([r[2],r[3]]);
+          this._windowSelect(
+            Math.min(a[0],b[0]), Math.min(a[1],b[1]),
+            Math.max(a[0],b[0]), Math.max(a[1],b[1]), crossing, add);
+        }
+        this._selFrom = null;
+        this._selRect = null;
+        if (this.onSelectionChanged) this.onSelectionChanged();
+        this.draw();
+      }
+    };
+    el.addEventListener("mouseup", endDrag);
+    el.addEventListener("mouseleave", () => {
+      this.osnapHit = null;
+      this.draw();
+    });
+    el.addEventListener("contextmenu", e => e.preventDefault());
+  }
+  _clickSelect(w, add) {
+    const tol = this.px(7);
+    const hit = this.doc.pickAt(w, tol);
+    if (!add) this.doc.clearSelection();
+    if (hit) {
+      const newVal = add ? !hit.selected : true;
+      hit.selected = newVal;
+    }
+  }
+  _windowSelect(x0,y0,x1,y1,crossing,add) {
+    if (!add) this.doc.clearSelection();
+    for (const e of this.doc.visibleEntities()) {
+      if (!this.doc.isEditable(e)) continue;
+      const b = e.bbox();
+      const inside = b[0]>=x0 && b[1]>=y0 && b[2]<=x1 && b[3]<=y1;
+      let pick = inside;
+      if (!pick && crossing) {
+        if (b[2]<x0 || b[0]>x1 || b[3]<y0 || b[1]>y1) continue;
+        const s = e.sample();
+        pick = s.some(p => p[0]>=x0 && p[0]<=x1 && p[1]>=y0 && p[1]<=y1);
+        if (!pick) {
+          const box = [[x0,y0],[x1,y0],[x1,y1],[x0,y1]];
+          const prs = box.map((p,i) => ["seg", p, box[(i+1)%4]]);
+          pick = e.primitives().some(q => prs.some(pr => primInt(pr, q).length > 0));
+        }
+      }
+      if (pick) e.selected = true;
+    }
+  }
+  penFor(e, ghost=false) {
+    if (ghost) return { color: "#4fc3f7", width: 1.4, dash: [5,4] };
+    const col = e.selected ? "#ffd54f" : this.doc.colorOf(e);
+    return { color: col, width: e.selected ? 2.2 : 1.4, dash: [] };
+  }
+  draw() {
+    const g = this.ctx;
+    const w = this._w, h = this._h;
+    g.fillStyle = "#141417";
+    g.fillRect(0, 0, w, h);
+    if (this.showGrid) this._drawGrid(g);
+    this._drawAxes(g);
+    for (const e of this.doc.entities) {
+      const l = this.doc.layers[e.layer];
+      if (l && !l.visible) continue;
+      try { e.draw(g, this, this.penFor(e)); } catch (err) { console.error(err); }
+    }
+    if (this.previewFn) {
+      try {
+        const cur = this.resolvePoint(this.mouseScreen);
+        const prev = this.previewFn(cur) || [];
+        for (const e of prev) e.draw(g, this, this.penFor(e, true));
+      } catch (err) { /* ignore */ }
+    }
+    this._drawGrips(g);
+    if (this.basePoint && this.pickMode) {
+      g.strokeStyle = "#4fc3f7";
+      g.setLineDash([3,3]);
+      g.beginPath();
+      const a = this.toScreen(this.basePoint);
+      g.moveTo(a[0],a[1]); g.lineTo(this.mouseScreen[0], this.mouseScreen[1]);
+      g.stroke();
+      g.setLineDash([]);
+    }
+    this._drawSelectionBox(g);
+    this._drawCursor(g);
+  }
+  _drawGrid(g) {
+    let gs = this.grid > 0 ? this.grid : 1;
+    while (gs * this.scale < 8) gs *= (gs*this.scale*5 >= 8 ? 5 : 10);
+    while (gs * this.scale > 120) gs /= 10;
+    const w = this._w, h = this._h;
+    const x0 = this.toWorld([0,0])[0], x1 = this.toWorld([w,0])[0];
+    const y0 = this.toWorld([0,h])[1], y1 = this.toWorld([0,0])[1];
+    const i0 = Math.floor(x0/gs), i1 = Math.ceil(x1/gs);
+    const j0 = Math.floor(y0/gs), j1 = Math.ceil(y1/gs);
+    if (i1-i0 > 4000 || j1-j0 > 4000) return;
+    g.lineWidth = 1;
+    for (let i = i0; i <= i1; i++) {
+      g.strokeStyle = i % 10 === 0 ? "#2b2b31" : "#202024";
+      const x = this.toScreen([i*gs, 0])[0];
+      g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke();
+    }
+    for (let j = j0; j <= j1; j++) {
+      g.strokeStyle = j % 10 === 0 ? "#2b2b31" : "#202024";
+      const y = this.toScreen([0, j*gs])[1];
+      g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke();
+    }
+  }
+  _drawAxes(g) {
+    const o = this.toScreen([0,0]);
+    g.lineWidth = 1.4;
+    g.strokeStyle = "#6a3030";
+    g.beginPath(); g.moveTo(0, o[1]); g.lineTo(this._w, o[1]); g.stroke();
+    g.strokeStyle = "#306a30";
+    g.beginPath(); g.moveTo(o[0], 0); g.lineTo(o[0], this._h); g.stroke();
+  }
+  _drawGrips(g) {
+    const sel = this.doc.entities.filter(e => e.selected);
+    if (!sel.length) return;
+    g.fillStyle = "#ffd54f";
+    g.strokeStyle = "#141417";
+    g.lineWidth = 1;
+    let n = 0;
+    for (const e of sel) {
+      for (const [kind, p] of e.snaps()) {
+        if (!["end","cen","ins","nod"].includes(kind)) continue;
+        const s = this.toScreen(p);
+        g.fillRect(s[0]-3, s[1]-3, 6, 6);
+        g.strokeRect(s[0]-3, s[1]-3, 6, 6);
+        if (++n > 400) break;
+      }
+      if (n > 400) break;
+    }
+  }
+  _drawSelectionBox(g) {
+    if (!this._selRect) return;
+    const r = this._selRect;
+    const cross = this._selCrossing;
+    g.strokeStyle = cross ? "#4caf50" : "#3d7bff";
+    g.fillStyle = cross ? "rgba(76,175,80,0.15)" : "rgba(61,123,255,0.15)";
+    g.lineWidth = 1;
+    if (cross) g.setLineDash([5,4]);
+    g.fillRect(r[0], r[1], r[2]-r[0], r[3]-r[1]);
+    g.strokeRect(r[0], r[1], r[2]-r[0], r[3]-r[1]);
+    g.setLineDash([]);
+  }
+  _drawCursor(g) {
+    const s = this.mouseScreen;
+    g.strokeStyle = "#55555f";
+    g.lineWidth = 1;
+    g.beginPath();
+    g.moveTo(0, s[1]); g.lineTo(this._w, s[1]);
+    g.moveTo(s[0], 0); g.lineTo(s[0], this._h);
+    g.stroke();
+    g.strokeRect(s[0]-6, s[1]-6, 12, 12);
+    if (this.osnapHit) {
+      const [kind, p] = this.osnapHit;
+      const sp = this.toScreen(p);
+      g.strokeStyle = "#ff7043";
+      g.lineWidth = 1.8;
+      const r = 6;
+      if (kind === "end" || kind === "ins") g.strokeRect(sp[0]-r, sp[1]-r, 2*r, 2*r);
+      else if (kind === "mid") { g.beginPath(); g.moveTo(sp[0],sp[1]-r); g.lineTo(sp[0]+r,sp[1]+r); g.lineTo(sp[0]-r,sp[1]+r); g.closePath(); g.stroke(); }
+      else if (kind === "cen" || kind === "nod") { g.beginPath(); g.arc(sp[0],sp[1],r,0,TAU); g.stroke(); }
+      else if (kind === "qua") { g.beginPath(); g.moveTo(sp[0],sp[1]-r); g.lineTo(sp[0]+r,sp[1]); g.lineTo(sp[0],sp[1]+r); g.lineTo(sp[0]-r,sp[1]); g.closePath(); g.stroke(); }
+      else if (kind === "int") { g.beginPath(); g.moveTo(sp[0]-r,sp[1]-r); g.lineTo(sp[0]+r,sp[1]+r); g.moveTo(sp[0]-r,sp[1]+r); g.lineTo(sp[0]+r,sp[1]-r); g.stroke(); }
+      else if (kind === "per") { g.beginPath(); g.moveTo(sp[0]-r,sp[1]-r); g.lineTo(sp[0]-r,sp[1]+r); g.lineTo(sp[0]+r,sp[1]+r); g.stroke(); }
+      else { g.beginPath(); g.arc(sp[0],sp[1],r-2,0,TAU); g.stroke(); }
+      g.fillStyle = "#ff7043";
+      g.font = "11px monospace";
+      g.fillText({end:"Final",mid:"Medio",cen:"Centro",qua:"Cuadrante",int:"Intersección",
+                  per:"Perpendicular",nod:"Nodo",ins:"Inserción",nea:"Cercano"}[kind] || kind,
+                 sp[0]+10, sp[1]-8);
+    }
+    if (this.basePoint && this.pickMode) {
+      const w = this.resolvePoint(this.mouseScreen);
+      const d = V.dist(this.basePoint, w);
+      const a = V.angle(this.basePoint, w) * 180 / Math.PI;
+      g.fillStyle = "#9a9aa2";
+      g.font = "11px monospace";
+      g.fillText(`${fmt(d,3)}  <  ${fmt(a,2)}°`, s[0]+14, s[1]+20);
+    }
+  }
+}
+
+/* ============================================================
+   5. COMANDOS
+   ============================================================ */
+class Prompt {
+  constructor(text, mode="point", opts={}) {
+    this.text = text; this.mode = mode;
+    this.base = opts.base || null;
+    this.preview = opts.preview || null;
+    this.keywords = opts.keywords || {};
+    this.default = opts.default;
+    this.numeric = !!opts.numeric;
+  }
+}
+class Ctx {
+  constructor(app) { this.app = app; this.name = ""; this._touched = false; }
+  get doc() { return this.app.doc; }
+  get view() { return this.app.view; }
+  log(m, l="info") { this.app.log(m, l); }
+  touch() { if (!this._touched) { this.doc.pushUndo(this.name); this._touched = true; } }
+  add(e) {
+    this.touch();
+    if (e.layer === "0" && this.doc.currentLayer !== "0") e.layer = this.doc.currentLayer;
+    return this.doc.add(e);
+  }
+  remove(es) { this.touch(); this.doc.remove(es); }
+  sel() { return this.doc.selection().filter(e => this.doc.isEditable(e)); }
+  pick(p, tolPx=9) { return this.doc.pickAt(p, this.view.px(tolPx)); }
+}
+
+function* selOrPrompt(ctx, msg="Selecciona objetos") {
+  let s = ctx.sel();
+  if (s.length) return s;
+  const sel = yield new Prompt(msg + " <Enter=aceptar>", "select");
+  return (sel || []).filter(e => ctx.doc.isEditable(e));
+}
+function ghost(ents, fn) {
+  return ents.map(e => { const c = e.clone(); c.selected = false; fn(c); return c; });
+}
+
+/* -------- DIBUJO -------- */
+function* cmdLine(ctx) {
+  const p1 = yield new Prompt("Punto inicial", "point");
+  if (!p1) return;
+  const first = p1;
+  let prev = p1, n = 0;
+  while (true) {
+    const p = yield new Prompt("Siguiente punto [C=cerrar/U=deshacer] <Enter=fin>",
+      "point", { base: prev, keywords: { C:"close", U:"undo" },
+      preview: cur => [new Line(prev, cur, { layer: ctx.doc.currentLayer })] });
+    if (p === null || p === undefined) break;
+    if (p === "close") { if (n >= 1) ctx.add(new Line(prev, first)); break; }
+    if (p === "undo") {
+      if (ctx.doc.entities.length) {
+        ctx.remove([ctx.doc.entities[ctx.doc.entities.length-1]]);
+        n--;
+      }
+      continue;
+    }
+    ctx.add(new Line(prev, p));
+    n++; prev = p;
+  }
+}
+function* cmdPolyline(ctx) {
+  const p = yield new Prompt("Primer punto", "point");
+  if (!p) return;
+  const pts = [p];
+  while (true) {
+    const prev = pts[pts.length-1];
+    const q = yield new Prompt("Siguiente punto [C=cerrar] <Enter=fin>", "point",
+      { base: prev, keywords: { C:"close" },
+        preview: cur => [new Polyline([...pts, cur], false, { layer: ctx.doc.currentLayer })] });
+    if (q === null || q === undefined || q === "close") {
+      const closed = q === "close";
+      if (pts.length >= 2) ctx.add(new Polyline(pts, closed));
+      return;
+    }
+    pts.push(q);
+  }
+}
+function _rectPts(a, b) { return [[a[0],a[1]],[b[0],a[1]],[b[0],b[1]],[a[0],b[1]]]; }
+function* cmdRectangle(ctx) {
+  const p1 = yield new Prompt("Primera esquina", "point");
+  if (!p1) return;
+  const p2 = yield new Prompt("Esquina opuesta", "point",
+    { base: p1, preview: cur => [new Polyline(_rectPts(p1, cur), true, { layer: ctx.doc.currentLayer })] });
+  if (!p2) return;
+  ctx.add(new Polyline(_rectPts(p1, p2), true));
+}
+function _ngon(c, p, n, inscribed=true) {
+  let r = V.dist(c, p);
+  const a0 = V.angle(c, p);
+  if (!inscribed) r = r / Math.cos(Math.PI/n);
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const a = a0 + TAU * i / n;
+    out.push([c[0]+r*Math.cos(a), c[1]+r*Math.sin(a)]);
+  }
+  return out;
+}
+function* cmdPolygon(ctx) {
+  let n = yield new Prompt("Número de lados", "number", { default: 6 });
+  n = Math.max(3, Math.min(Math.round(n || 6), 256));
+  const c = yield new Prompt("Centro", "point");
+  if (!c) return;
+  const mode = yield new Prompt("Inscrito o circunscrito [I/C] <I>", "keyword",
+    { keywords: { I:"I", C:"C" }, default: "I" });
+  const ins = (mode || "I").toUpperCase() !== "C";
+  const p = yield new Prompt("Punto del radio", "point",
+    { base: c, preview: cur => [new Polyline(_ngon(c, cur, n, ins), true, { layer: ctx.doc.currentLayer })] });
+  if (!p) return;
+  ctx.add(new Polyline(_ngon(c, p, n, ins), true));
+}
+function* cmdCircle(ctx) {
+  const c = yield new Prompt("Centro", "point");
+  if (!c) return;
+  const r = yield new Prompt("Radio o punto", "point",
+    { base: c, preview: cur => [new Circle(c, V.dist(c, cur), { layer: ctx.doc.currentLayer })] });
+  if (!r) return;
+  ctx.add(new Circle(c, V.dist(c, r)));
+}
+function* cmdArc(ctx) {
+  const cen = yield new Prompt("Centro", "point");
+  if (!cen) return;
+  const a = yield new Prompt("Punto inicial", "point", { base: cen });
+  if (!a) return;
+  const r = V.dist(cen, a);
+  const a0 = V.angle(cen, a);
+  const b = yield new Prompt("Punto final (sentido antihorario)", "point",
+    { base: cen, preview: cur => [new Arc(cen, r, a0, V.angle(cen, cur), { layer: ctx.doc.currentLayer })] });
+  if (!b) return;
+  ctx.add(new Arc(cen, r, a0, V.angle(cen, b)));
+}
+function* cmdEllipse(ctx) {
+  const c = yield new Prompt("Centro", "point");
+  if (!c) return;
+  const a = yield new Prompt("Extremo del eje mayor", "point",
+    { base: c, preview: cur => [new Ellipse(c, V.dist(c, cur), V.dist(c, cur)/2, V.angle(c, cur), { layer: ctx.doc.currentLayer })] });
+  if (!a) return;
+  const rx = V.dist(c, a), ang = V.angle(c, a);
+  const n = [-Math.sin(ang), Math.cos(ang)];
+  const b = yield new Prompt("Semieje menor (punto o distancia)", "point", { base: c,
+    preview: cur => {
+      const ry = Math.max(Math.abs(V.dot(V.sub(cur, c), n)), 1e-3);
+      return [new Ellipse(c, rx, ry, ang, { layer: ctx.doc.currentLayer })];
+    }});
+  if (!b) return;
+  const ry = Math.max(Math.abs(V.dot(V.sub(b, c), n)), 1e-3);
+  ctx.add(new Ellipse(c, rx, ry, ang));
+}
+function* cmdPoint(ctx) {
+  while (true) {
+    const p = yield new Prompt("Ubicación del punto <Enter=fin>", "point");
+    if (!p) return;
+    ctx.add(new PointEnt(p));
+  }
+}
+function* cmdText(ctx) {
+  const p = yield new Prompt("Punto de inserción", "point");
+  if (!p) return;
+  const h = yield new Prompt("Altura", "number", { default: ctx.app.textHeight });
+  ctx.app.textHeight = parseFloat(h || ctx.app.textHeight);
+  const a = yield new Prompt("Rotación (grados)", "number", { default: 0 });
+  const s = yield new Prompt("Texto", "text");
+  if (!s) return;
+  ctx.add(new TextEnt(p, s, ctx.app.textHeight, (a || 0) * Math.PI/180));
+}
+
+/* -------- EDICIÓN -------- */
+function* cmdMove(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  const a = yield new Prompt("Punto base", "point");
+  if (!a) return;
+  const b = yield new Prompt("Punto destino", "point",
+    { base: a, preview: cur => ghost(sel, e => e.translate(V.sub(cur, a))) });
+  if (!b) return;
+  ctx.touch();
+  for (const e of sel) e.translate(V.sub(b, a));
+}
+function* cmdCopy(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  const a = yield new Prompt("Punto base", "point");
+  if (!a) return;
+  while (true) {
+    const b = yield new Prompt("Punto destino <Enter=fin>", "point",
+      { base: a, preview: cur => ghost(sel, e => e.translate(V.sub(cur, a))) });
+    if (!b) return;
+    const d = V.sub(b, a);
+    for (const e of sel) {
+      const c = e.clone();
+      c.translate(d);
+      ctx.add(c);
+    }
+  }
+}
+function* cmdRotate(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  const c = yield new Prompt("Centro de rotación", "point");
+  if (!c) return;
+  const a = yield new Prompt("Ángulo (grados) o punto", "point",
+    { base: c, numeric: true,
+      preview: cur => ghost(sel, e => e.rotate(c, V.angle(c, cur))) });
+  if (a === null || a === undefined) return;
+  const ang = typeof a === "number" ? a * Math.PI/180 : V.angle(c, a);
+  ctx.touch();
+  for (const e of sel) e.rotate(c, ang);
+}
+function* cmdScale(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  const c = yield new Prompt("Punto base", "point");
+  if (!c) return;
+  const f = yield new Prompt("Factor de escala", "number", { default: 1.0 });
+  const fv = parseFloat(f || 1.0);
+  if (Math.abs(fv) < 1e-9) return;
+  ctx.touch();
+  for (const e of sel) e.scale(c, fv);
+}
+function* cmdMirror(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  const p1 = yield new Prompt("Primer punto del eje", "point");
+  if (!p1) return;
+  const p2 = yield new Prompt("Segundo punto del eje", "point",
+    { base: p1, preview: cur => ghost(sel, e => e.mirror(p1, cur)) });
+  if (!p2) return;
+  const keep = yield new Prompt("¿Borrar originales? [S/N] <N>", "keyword",
+    { keywords: { S:"S", N:"N" }, default: "N" });
+  ctx.touch();
+  for (const e of sel) {
+    const c = e.clone();
+    c.mirror(p1, p2);
+    ctx.add(c);
+  }
+  if ((keep || "N").toUpperCase() === "S") ctx.remove(sel);
+}
+function _offsetEntity(e, d, side) {
+  if (e instanceof Line) {
+    const n = V.perp(V.norm(V.sub(e.p2, e.p1)));
+    const s = V.dot(V.sub(side, e.p1), n) >= 0 ? 1 : -1;
+    const off = V.mul(n, d*s);
+    return new Line(V.add(e.p1, off), V.add(e.p2, off), { layer: e.layer, color: e.color });
+  }
+  if (e instanceof Circle) {
+    const s = V.dist(side, e.center) > e.radius ? 1 : -1;
+    const r = e.radius + d*s;
+    return r > 1e-9 ? new Circle(e.center, r, { layer: e.layer, color: e.color }) : null;
+  }
+  if (e instanceof Arc) {
+    const s = V.dist(side, e.center) > e.radius ? 1 : -1;
+    const r = e.radius + d*s;
+    return r > 1e-9 ? new Arc(e.center, r, e.a0, e.a1, { layer: e.layer, color: e.color }) : null;
+  }
+  if (e instanceof Polyline) {
+    const prs = e.primitives();
+    let bestI = 0, bestD = Infinity;
+    for (let i = 0; i < prs.length; i++) {
+      const dd = distPointSeg(side, prs[i][1], prs[i][2]);
+      if (dd < bestD) { bestD = dd; bestI = i; }
+    }
+    const pr = prs[bestI];
+    const n = V.perp(V.norm(V.sub(pr[2], pr[1])));
+    const s = V.dot(V.sub(side, pr[1]), n) >= 0 ? 1 : -1;
+    return new Polyline(offsetPolyline(e.points, d*s, e.closed), e.closed, { layer: e.layer, color: e.color });
+  }
+  if (e instanceof Ellipse) {
+    const s = V.dist(side, e.center) > (e.rx+e.ry)/2 ? 1 : -1;
+    return new Ellipse(e.center, Math.max(e.rx + d*s, 1e-6), Math.max(e.ry + d*s, 1e-6),
+      e.angle, { layer: e.layer, color: e.color });
+  }
+  return null;
+}
+function* cmdOffset(ctx) {
+  let d = yield new Prompt("Distancia de desfase", "number", { default: ctx.app.offsetDist });
+  d = Math.abs(parseFloat(d || ctx.app.offsetDist));
+  if (d < 1e-9) return;
+  ctx.app.offsetDist = d;
+  while (true) {
+    const p = yield new Prompt("Objeto a desfasar <Enter=fin>", "point");
+    if (!p) return;
+    const e = ctx.pick(p);
+    if (!e) { ctx.log("No se encontró ningún objeto ahí.", "warn"); continue; }
+    const q = yield new Prompt("Lado del desfase", "point",
+      { preview: cur => { const x = _offsetEntity(e, d, cur); return x ? [x] : []; } });
+    if (!q) return;
+    const nw = _offsetEntity(e, d, q);
+    if (!nw) { ctx.log("Ese objeto no admite desfase.", "warn"); continue; }
+    ctx.add(nw);
+  }
+}
+function* cmdDelete(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (sel.length) {
+    ctx.remove(sel);
+    ctx.log(`${sel.length} objeto(s) eliminados.`);
+  }
+}
+function* cmdExplode(ctx) {
+  const sel = yield* selOrPrompt(ctx);
+  if (!sel.length) return;
+  let n = 0;
+  for (const e of sel) {
+    const parts = e.explode();
+    if (parts.length) {
+      ctx.remove([e]);
+      for (const p of parts) ctx.add(p);
+      n++;
+    }
+  }
+  ctx.log(`${n} objeto(s) descompuestos.`);
+}
+function* cmdJoin(ctx) {
+  const sel = yield* selOrPrompt(ctx, "Objetos a unir");
+  const segs = [];
+  for (const e of sel) {
+    if (e instanceof Line) segs.push([e.p1, e.p2]);
+    else if (e instanceof Polyline) segs.push(e.points.slice());
+  }
+  if (segs.length < 2) { ctx.log("Selecciona al menos dos líneas o polilíneas.", "warn"); return; }
+  const tol = ctx.view.px(6);
+  let chain = segs.shift();
+  let changed = true;
+  while (changed && segs.length) {
+    changed = false;
+    for (let i = 0; i < segs.length; i++) {
+      const s = segs[i];
+      if (V.dist(chain[chain.length-1], s[0]) <= tol) { chain = chain.concat(s.slice(1)); }
+      else if (V.dist(chain[chain.length-1], s[s.length-1]) <= tol) { chain = chain.concat(s.slice().reverse().slice(1)); }
+      else if (V.dist(chain[0], s[s.length-1]) <= tol) { chain = s.slice(0,-1).concat(chain); }
+      else if (V.dist(chain[0], s[0]) <= tol) { chain = s.slice().reverse().slice(0,-1).concat(chain); }
+      else continue;
+      segs.splice(i,1); changed = true; break;
+    }
+  }
+  const closed = V.dist(chain[0], chain[chain.length-1]) <= tol && chain.length > 2;
+  if (closed) chain = chain.slice(0,-1);
+  ctx.remove(sel);
+  ctx.add(new Polyline(chain, closed));
+}
+
+/* -------- VISTA Y SISTEMA -------- */
+function* cmdZoom(ctx) {
+  const s = yield new Prompt("Factor o [E=extensión/V=ventana/P=previo/S=selección]",
+    "keyword", { keywords: { E:"E", V:"V", P:"P", S:"S" }, default: "E" });
+  const v = (s || "E").toString().toUpperCase();
+  if (v === "E") ctx.view.zoomExtents();
+  else if (v === "P") ctx.view.prevView();
+  else if (v === "S") ctx.view.zoomExtents(ctx.sel().length ? ctx.sel() : null);
+  else if (v === "V") {
+    const a = yield new Prompt("Primera esquina de la ventana", "point");
+    const b = yield new Prompt("Esquina opuesta", "point", { base: a });
+    if (a && b) ctx.view.zoomBox(Math.min(a[0],b[0]), Math.min(a[1],b[1]),
+                                 Math.max(a[0],b[0]), Math.max(a[1],b[1]));
+  } else {
+    const f = parseFloat(v);
+    if (isNaN(f)) { ctx.log("Factor no válido.", "warn"); return; }
+    ctx.view.zoomAt([ctx.view._w/2, ctx.view._h/2], f);
+  }
+}
+function* cmdZoomWindow(ctx) {
+  const a = yield new Prompt("Primera esquina de la ventana", "point");
+  if (!a) return;
+  const b = yield new Prompt("Esquina opuesta", "point", { base: a });
+  if (!b) return;
+  ctx.view.zoomBox(Math.min(a[0],b[0]), Math.min(a[1],b[1]),
+                   Math.max(a[0],b[0]), Math.max(a[1],b[1]));
+}
+function
