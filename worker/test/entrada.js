@@ -14,7 +14,8 @@ export default {
     const AI = {
       async run(modelo, entrada) {
         const r = await env.AI_FALSO.fetch('http://ai/', { method: 'POST', body: JSON.stringify({ modelo, entrada }) });
-        return r.json();
+        if (r.status >= 500) throw new Error(await r.text());
+        return (r.headers.get('content-type') || '').includes('event-stream') ? r.body : r.json();
       },
     };
     return principal.fetch(request, { ...env, AI }, ctx);

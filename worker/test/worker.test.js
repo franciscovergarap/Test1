@@ -34,6 +34,8 @@ let github;
 let respuestaModelo;
 let moderacion;
 let ultimaEntradaLector;
+let ultimaEntradaEditor;
+let modoModelo; // 'json' | 'sse' | 'falla'
 
 function b64(t) {
   return Buffer.from(t, 'utf8').toString('base64');
@@ -63,6 +65,14 @@ before(async () => {
         if (modelo.includes('llama-4-scout')) {
           ultimaEntradaLector = entrada.messages[1].content;
           return Response.json({ response: '**Hallazgos:** la economía chilena sigue una trayectoria dependiente.' });
+        }
+        ultimaEntradaEditor = entrada.messages[1].content;
+        if (modoModelo === 'falla') return new Response('AiError: 3046: Request timeout', { status: 500 });
+        if (modoModelo === 'sse') {
+          // Trocea la respuesta como lo hace Workers AI en modo streaming.
+          const trozos = respuestaModelo.match(/[\s\S]{1,37}/g) || [];
+          const sse = trozos.map((t) => `data: ${JSON.stringify({ response: t })}\n\n`).join('') + 'data: [DONE]\n\n';
+          return new Response(sse, { headers: { 'content-type': 'text/event-stream' } });
         }
         return Response.json({ response: respuestaModelo });
       },
@@ -107,6 +117,8 @@ beforeEach(() => {
   moderacion = 'safe';
   respuestaModelo = '';
   ultimaEntradaLector = null;
+  ultimaEntradaEditor = null;
+  modoModelo = 'json';
 });
 
 async function post(ruta, cuerpo, origen = ORIGEN) {
@@ -115,7 +127,9 @@ async function post(ruta, cuerpo, origen = ORIGEN) {
     headers: { 'Content-Type': 'application/json', Origin: origen },
     body: JSON.stringify(cuerpo),
   });
-  return { status: r.status, datos: await r.json() };
+  const datos = await r.json();
+  // Las operaciones largas responden 200 y llevan el código real en el cuerpo si fallan.
+  return { status: datos.status || r.status, datos };
 }
 
 async function llamar(ruta, cuerpo) {
@@ -282,4 +296,42 @@ test('la portada real del CPE atraviesa el saneador y el control de integridad s
   const sinZona = (d) => d.replace(/<!-- ZONA-DIALECTICA:INICIO -->[\s\S]*<!-- ZONA-DIALECTICA:FIN -->/, '').replace(/<style id="estilo-dialectico">[\s\S]*?<\/style>/, '');
   assert.equal(sinZona(github.contenido), sinZona(real));
   assert.equal((github.contenido.match(/<li>/g) || []).length, (real.match(/<li>/g) || []).length);
+});
+
+test('los cambios que se resuelven con CSS no reescriben el HTML', async () => {
+  modoModelo = 'sse';
+  respuestaModelo = '<style id="estilo-dialectico">body,.main,.sidebar{background:#c0392b;color:#fff}</style>';
+  const p = await post('/proponer', { instruccion: 'Usa rojo de fondo', pagina: 'index.html' });
+  assert.equal(p.status, 200, JSON.stringify(p.datos));
+  assert.equal(p.datos.css, 'body,.main,.sidebar{background:#c0392b;color:#fff}');
+  assert.match(p.datos.cuerpo, /<h1>Centro Producción del Espacio<\/h1>/);
+  const a = await post('/aplicar', { cuerpo: p.datos.cuerpo, css: p.datos.css, token: p.datos.token });
+  assert.equal(a.status, 200, JSON.stringify(a.datos));
+  assert.match(github.contenido, /<style id="estilo-dialectico">\nbody,.main,.sidebar\{background:#c0392b/);
+});
+
+test('el listado de publicaciones viaja compacto al modelo y se restituye', async () => {
+  const { readFileSync } = await import('node:fs');
+  const real = readFileSync(new URL('../../index.html', import.meta.url), 'utf8');
+  github.contenido = real;
+  modoModelo = 'sse';
+  // El modelo devuelve la página reorganizada con el listado vacío, como se le pidió.
+  const inicio = real.indexOf('<!-- ZONA-DIALECTICA:INICIO -->') + 32;
+  const cuerpo = real.slice(inicio, real.indexOf('<!-- ZONA-DIALECTICA:FIN -->'));
+  const compacto = cuerpo.replace(/(<ul data-compacto="publicaciones">)[\s\S]*?(<\/ul>)/, '$1$2');
+  respuestaModelo = compacto.replace('<main class="main">', '<main class="main portada-roja">');
+  const p = await post('/proponer', { instruccion: 'marca la portada', pagina: 'index.html' });
+  assert.equal(p.status, 200, JSON.stringify(p.datos));
+  assert.ok(ultimaEntradaEditor.length < real.length * 0.75, 'el modelo recibe la página compacta');
+  assert.doesNotMatch(ultimaEntradaEditor, /pub-46-urban-food-deserts/);
+  assert.match(p.datos.cuerpo, /portada-roja/);
+  assert.match(p.datos.cuerpo, /pub-46-urban-food-deserts/);
+  assert.equal((p.datos.cuerpo.match(/publicaciones.html#pub-/g) || []).length, 46);
+});
+
+test('si el modelo falla, el error llega legible a la terminal', async () => {
+  modoModelo = 'falla';
+  const p = await post('/proponer', { instruccion: 'Usa rojo de fondo', pagina: 'index.html' });
+  assert.equal(p.status, 502);
+  assert.match(p.datos.error, /no respondió: .*timeout/i);
 });

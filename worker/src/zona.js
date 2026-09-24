@@ -35,6 +35,28 @@ export function recomponer(documento, { cuerpo, css }) {
   return conCuerpo.replace(ESTILO, () => bloque);
 }
 
+// Bloques extensos y repetitivos (como el listado de 46 publicaciones de la barra
+// lateral) se marcan con data-compacto="nombre". Antes de enviarlos al modelo se
+// vacían y después se restituyen: el modelo puede moverlos o darles estilo, pero no
+// necesita copiarlos, lo que reduce su respuesta a una fracción y evita que se agote
+// el tiempo de generación.
+const BLOQUE_COMPACTO = /<([a-z][a-z0-9]*)([^>]*\sdata-compacto="([a-z0-9-]+)"[^>]*)>([\s\S]*?)<\/\1>/gi;
+
+export function compactar(cuerpo) {
+  const guardados = {};
+  const compacto = cuerpo.replace(BLOQUE_COMPACTO, (_, etiqueta, atributos, nombre, contenido) => {
+    guardados[nombre] = contenido;
+    return `<${etiqueta}${atributos}></${etiqueta}>`;
+  });
+  return { compacto, guardados };
+}
+
+export function restituir(cuerpo, guardados) {
+  return cuerpo.replace(BLOQUE_COMPACTO, (entero, etiqueta, atributos, nombre, contenido) =>
+    nombre in guardados && !contenido.trim() ? `<${etiqueta}${atributos}>${guardados[nombre]}</${etiqueta}>` : entero,
+  );
+}
+
 // Separa la respuesta del modelo en CSS y cuerpo. El formato pedido es:
 //   <style id="estilo-dialectico">…</style>
 //   …HTML del cuerpo…

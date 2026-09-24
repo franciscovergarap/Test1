@@ -376,7 +376,7 @@
       sustituirZona(estado.original.nodos, estado.original.css);
       estado.propuesta = null;
     }
-    const espera = escribir('El modelo está reescribiendo la página…', 'td-tenue td-pulso');
+    const espera = escribir('El modelo está reescribiendo la página (puede tardar hasta un minuto)…', 'td-tenue td-pulso');
     try {
       const r = await pedir('POST', '/proponer', { instruccion, pagina: PAGINA, firma: leerFirma() });
       const hoja = hojaPropia();
@@ -445,7 +445,8 @@
       throw new Error('No se pudo contactar al servidor de la terminal.');
     }
     const datos = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(datos.error || `El servidor respondió ${r.status}.`);
+    // Las operaciones largas responden 200 de inmediato y, si fallan, traen el error en el cuerpo.
+    if (!r.ok || datos.error) throw new Error(datos.error || `El servidor respondió ${r.status}.`);
     return datos;
   }
 
